@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - '.github/workflows/polaris.yml'
+  workflow_dispatch:
 
 env:
   GRADLE_USER_HOME: /mnt/instance-store/gradle/HOME
