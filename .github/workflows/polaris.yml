@@ -4,6 +4,9 @@ on:
     paths:
       - '.github/workflows/polaris.yml'
 
+env:
+  GRADLE_USER_HOME: /mnt/instance-store/gradle/HOME
+
 jobs:
   inspect-runner:
     runs-on:
