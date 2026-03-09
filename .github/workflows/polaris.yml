@@ -103,7 +103,7 @@ jobs:
       - self-hosted
     steps:
       - name: Cleanup home dir
-        run: rm -rf ~/.gradle
+        run: rm -rf $GRADLE_USER_HOME
 
       - name: Set up Java
         uses: actions/setup-java@v5
