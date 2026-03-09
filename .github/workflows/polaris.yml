@@ -97,27 +97,23 @@ jobs:
   #         path: ${{ runner.temp }}/inspect/system-state.txt
 
   build:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.storage_name }}${{ matrix.remove_java_compile && '-with-rm-javaCompile' || '' }}${{ matrix.disable_incremental_compile && '-disable-incremental-compile' || '' }}
     runs-on:
       - self-hosted
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: fast-disk
-            gradle_user_home: /mnt/instance-store/gradle/HOME
-            remove_java_compile: false
-          - name: fast-disk-with-rm-javaCompile
-            gradle_user_home: /mnt/instance-store/gradle/HOME
-            remove_java_compile: true
-          - name: slow-disk
-            gradle_user_home: /home/ec2-user/gradle/HOME
-            remove_java_compile: false
-          - name: slow-disk-with-rm-javaCompile
-            gradle_user_home: /home/ec2-user/gradle/HOME
-            remove_java_compile: true
+        storage_name:
+          - fast-disk
+          - slow-disk
+        remove_java_compile:
+          - false
+          - true
+        disable_incremental_compile:
+          - false
+          - true
     env:
-      GRADLE_USER_HOME: ${{ matrix.gradle_user_home }}
+      GRADLE_USER_HOME: ${{ matrix.storage_name == 'fast-disk' && '/mnt/instance-store/gradle/HOME' || '/home/ec2-user/gradle/HOME' }}
 
     steps:
       - name: Cleanup home dir
@@ -132,6 +128,14 @@ jobs:
       - uses: actions/checkout@v5
         with:
           repository: apache/polaris
+
+      - name: Disable incremental Java compile
+        if: ${{ matrix.disable_incremental_compile }}
+        run: |
+          cat <<'EOF' >> build.gradle.kts
+
+          allprojects { tasks.withType<JavaCompile>().configureEach { options.setIncremental(false) } }
+          EOF
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v5
