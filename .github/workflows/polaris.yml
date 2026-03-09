@@ -1,0 +1,280 @@
+name: Polaris Build to test Gradle User Home restore
+on:
+  push:
+    paths:
+      - '.github/workflows/polaris.yml'
+
+jobs:
+  inspect-runner:
+    runs-on:
+      - ubuntu-latest
+    steps:
+      - name: Inspect runner storage and instance state
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p "$RUNNER_TEMP/inspect"
+          LOG="$RUNNER_TEMP/inspect/system-state.txt"
+
+          {
+            echo "=== system-state $(date -Is) ==="
+
+            echo "== Basic system =="
+            uname -a || true
+            cat /etc/os-release || true
+            echo "hostname=$(hostname 2>/dev/null || true)"
+            echo "user=$(id 2>/dev/null || true)"
+            echo "pwd=$(pwd 2>/dev/null || true)"
+
+            echo
+            echo "== CPU and memory =="
+            nproc || true
+            lscpu || true
+            free -h || true
+
+            echo
+            echo "== Filesystems and mounts =="
+            df -hT || true
+            findmnt -a || true
+
+            echo
+            echo "== Block devices =="
+            lsblk -a -o NAME,KNAME,MAJ:MIN,FSTYPE,TYPE,SIZE,ROTA,RO,RM,MOUNTPOINTS,MODEL,SERIAL || true
+
+            echo
+            echo "== Block device queue info =="
+            for d in /sys/block/*; do
+              dev="$(basename "$d")"
+              echo "-- $dev --"
+              for f in rotational scheduler nr_requests read_ahead_kb logical_block_size physical_block_size max_sectors_kb minimum_io_size optimal_io_size; do
+                [ -r "$d/queue/$f" ] && echo "$f=$(cat "$d/queue/$f")"
+              done
+            done
+
+            echo
+            echo "== Important paths =="
+            for p in "$HOME" "$GITHUB_WORKSPACE" "${RUNNER_TEMP:-}" "$HOME/.gradle"; do
+              [ -n "$p" ] || continue
+              echo "-- $p --"
+              mkdir -p "$p" 2>/dev/null || true
+              df -hT "$p" || true
+            done
+
+            echo
+            echo "== Environment (selected) =="
+            env | sort | grep -E '^(AWS|CODEBUILD|GITHUB|RUNNER|JAVA|GRADLE|HOME|USER|SHELL|PATH)=' || true
+
+            echo
+            echo "== Java and Gradle =="
+            java -version || true
+            javac -version || true
+            ./gradlew --version || true
+
+            echo
+            echo "== EC2 instance metadata (IMDSv2) =="
+            TOKEN="$(curl -fsS -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600' 2>/dev/null || true)"
+            if [ -n "$TOKEN" ]; then
+              meta() {
+                curl -fsS -H "X-aws-ec2-metadata-token: $TOKEN" "http://169.254.169.254/latest/$1" 2>/dev/null || true
+              }
+              echo "instance-id=$(meta meta-data/instance-id)"
+              echo "instance-type=$(meta meta-data/instance-type)"
+              echo "ami-id=$(meta meta-data/ami-id)"
+              echo "availability-zone=$(meta meta-data/placement/availability-zone)"
+              echo "-- identity document --"
+              meta dynamic/instance-identity/document || true
+            else
+              echo "IMDS not reachable"
+            fi
+          } | tee "$LOG"
+
+      - name: Upload system inspection
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: system-state
+          path: ${{ runner.temp }}/inspect/system-state.txt
+
+  build:
+    runs-on:
+      - ubuntu-latest
+    steps:
+      - name: Cleanup home dir
+        run: rm -rf ~/.gradle
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          java-version: 21
+          distribution: corretto
+
+      - uses: actions/checkout@v5
+        with:
+          repository: apache/polaris
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          develocity-injection-enabled: true
+          develocity-plugin-version: '4.2.2'
+          develocity-ccud-plugin-version: '2.4.0'
+          develocity-url: 'https://ge.solutions-team.gradle.com'
+          develocity-enforce-url: true
+          develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
+
+      - run: ./gradlew --info --no-build-cache compileJava
+
+  # build-with-rm-javaCompile:
+  #   runs-on:
+  #     - ubuntu-latest
+  #   steps:
+  #     - name: Cleanup home dir
+  #       run: rm -rf ~/.gradle
+
+  #     - name: Set up Java
+  #       uses: actions/setup-java@v5
+  #       with:
+  #         java-version: 21
+  #         distribution: corretto
+
+  #     - uses: actions/checkout@v5
+  #       with:
+  #         repository: apache/polaris
+
+  #     - name: Setup Gradle
+  #       uses: gradle/actions/setup-gradle@v5
+  #       with:
+  #         develocity-injection-enabled: true
+  #         develocity-plugin-version: '4.2.2'
+  #         develocity-ccud-plugin-version: '2.4.0'
+  #         develocity-url: 'https://ge.solutions-team.gradle.com'
+  #         develocity-enforce-url: true
+  #         develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
+  #         cache-read-only: true
+
+  #     - run: rm -rf ~/.gradle/caches/9.4.0/javaCompile
+
+  #     - run: ./gradlew --info --no-build-cache compileJava
+
+  # build-disable-incremental-compile:
+  #   runs-on:
+  #     - codebuild-another-self-hosted-runner-test-${{ github.run_id }}-${{ github.run_attempt }}
+  #   steps:
+  #     - name: Cleanup home dir
+  #       run: rm -rf ~/.gradle
+
+  #     - name: Set up Java
+  #       uses: actions/setup-java@v5
+  #       with:
+  #         java-version: 21
+  #         distribution: corretto
+
+  #     - uses: actions/checkout@v5
+  #       with:
+  #         repository: apache/polaris
+
+  #     - name: Disable incremental Java compile
+  #       run: |
+  #         cat <<'EOF' >> build.gradle.kts
+
+  #         allprojects { tasks.withType<JavaCompile>().configureEach { options.setIncremental(false) } }
+  #         EOF
+
+  #     - name: Setup Gradle
+  #       uses: gradle/actions/setup-gradle@v5
+  #       with:
+  #         build-scan-publish: true
+  #         develocity-injection-enabled: true
+  #         develocity-plugin-version: '4.2.2'
+  #         develocity-ccud-plugin-version: '2.4.0'
+  #         develocity-url: 'https://develocity-field.gradle.com'
+  #         develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY_2 }}
+  #         build-scan-terms-of-use-url: 'https://gradle.com/terms-of-service'
+  #         build-scan-terms-of-use-agree: 'yes'
+  #         cache-read-only: true
+
+  #     - run: |
+  #         ./gradlew build \
+  #           --info \
+  #           --no-build-cache \
+  #           --exclude-task intTest \
+  #           --exclude-task :polaris-admin:test \
+  #           --exclude-task :polaris-async-java:test \
+  #           --exclude-task :polaris-persistence-nosql-cdi-quarkus-distcache:test \
+  #           --exclude-task :polaris-runtime-service:test \
+  #           --exclude-task :polaris-idgen-impl:jcstress \
+  #           --exclude-task :polaris-persistence-nosql-correctness:correctnessInMemoryTest \
+  #           -Dscan.tag.SETUP_GRADLE_CACHE \
+  #           -Dscan.tag.SELFHOSTED_RUNNER
+  #       env:
+  #         DEVELOCITY_SERVER: 'https://develocity-field.gradle.com'
+
+  # build-with-rm-javaCompile-disable-incremental-compile:
+  #   runs-on:
+  #     - codebuild-another-self-hosted-runner-test-${{ github.run_id }}-${{ github.run_attempt }}
+  #   steps:
+  #     - name: Cleanup home dir
+  #       run: rm -rf ~/.gradle
+
+  #     - name: Set up Java
+  #       uses: actions/setup-java@v5
+  #       with:
+  #         java-version: 21
+  #         distribution: corretto
+
+  #     - uses: actions/checkout@v5
+  #       with:
+  #         repository: apache/polaris
+
+  #     - name: Disable incremental Java compile
+  #       run: |
+  #         cat <<'EOF' >> build.gradle.kts
+
+  #         allprojects { tasks.withType<JavaCompile>().configureEach { options.setIncremental(false) } }
+  #         EOF
+
+
+  #     - name: Setup Gradle
+  #       uses: gradle/actions/setup-gradle@v5
+  #       with:
+  #         build-scan-publish: true
+  #         develocity-injection-enabled: true
+  #         develocity-plugin-version: '4.2.2'
+  #         develocity-ccud-plugin-version: '2.4.0'
+  #         develocity-url: 'https://develocity-field.gradle.com'
+  #         develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY_2 }}
+  #         build-scan-terms-of-use-url: 'https://gradle.com/terms-of-service'
+  #         build-scan-terms-of-use-agree: 'yes'
+  #         cache-read-only: true
+
+  #     - run: rm -rf ~/.gradle/caches/9.4.0/javaCompile
+
+  #     - run: |
+  #         ./gradlew build \
+  #           --info \
+  #           --no-build-cache \
+  #           --exclude-task intTest \
+  #           --exclude-task :polaris-admin:test \
+  #           --exclude-task :polaris-async-java:test \
+  #           --exclude-task :polaris-persistence-nosql-cdi-quarkus-distcache:test \
+  #           --exclude-task :polaris-runtime-service:test \
+  #           --exclude-task :polaris-idgen-impl:jcstress \
+  #           --exclude-task :polaris-persistence-nosql-correctness:correctnessInMemoryTest \
+  #           -Dscan.tag.SETUP_GRADLE_CACHE \
+  #           -Dscan.tag.SELFHOSTED_RUNNER
+  #       env:
+  #         DEVELOCITY_SERVER: 'https://develocity-field.gradle.com'
+
+  # actions-timeline:
+  #   permissions:
+  #     actions: read
+  #   needs:
+  #     - build
+  #     - build-with-rm-javaCompile
+  #     - build-disable-incremental-compile
+  #     - build-with-rm-javaCompile-disable-incremental-compile
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: Kesin11/actions-timeline@v2
+  #       with:
+  #         show-waiting-runner: false
