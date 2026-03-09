@@ -96,11 +96,28 @@ jobs:
   #         name: system-state
   #         path: ${{ runner.temp }}/inspect/system-state.txt
 
-  fast-disk:
+  build:
+    name: ${{ matrix.name }}
     runs-on:
       - self-hosted
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: fast-disk
+            gradle_user_home: /mnt/instance-store/gradle/HOME
+            remove_java_compile: false
+          - name: fast-disk-with-rm-javaCompile
+            gradle_user_home: /mnt/instance-store/gradle/HOME
+            remove_java_compile: true
+          - name: slow-disk
+            gradle_user_home: /home/ec2-user/gradle/HOME
+            remove_java_compile: false
+          - name: slow-disk-with-rm-javaCompile
+            gradle_user_home: /home/ec2-user/gradle/HOME
+            remove_java_compile: true
     env:
-      GRADLE_USER_HOME: /mnt/instance-store/gradle/HOME
+      GRADLE_USER_HOME: ${{ matrix.gradle_user_home }}
 
     steps:
       - name: Cleanup home dir
@@ -126,106 +143,9 @@ jobs:
           develocity-enforce-url: true
           develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
 
-      - run: ./gradlew --info --no-build-cache --no-daemon compileJava
-
-  fast-disk-with-rm-javaCompile:
-    runs-on:
-      - self-hosted
-    env:
-      GRADLE_USER_HOME: /mnt/instance-store/gradle/HOME
-
-    steps:
-      - name: Cleanup home dir
-        run: rm -rf $GRADLE_USER_HOME
-
-      - name: Set up Java
-        uses: actions/setup-java@v5
-        with:
-          java-version: 21
-          distribution: corretto
-
-      - uses: actions/checkout@v5
-        with:
-          repository: apache/polaris
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-        with:
-          develocity-injection-enabled: true
-          develocity-plugin-version: '4.2.2'
-          develocity-ccud-plugin-version: '2.4.0'
-          develocity-url: 'https://ge.solutions-team.gradle.com'
-          develocity-enforce-url: true
-          develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
-
-      - run: rm -rf $GRADLE_USER_HOME/caches/9.4.0/javaCompile
-
-      - run: ./gradlew --info --no-build-cache --no-daemon compileJava
-
-
-  slow-disk:
-    runs-on:
-      - self-hosted
-    env:
-      GRADLE_USER_HOME: /home/ec2-user/gradle/HOME
-
-    steps:
-      - name: Cleanup home dir
-        run: rm -rf $GRADLE_USER_HOME
-
-      - name: Set up Java
-        uses: actions/setup-java@v5
-        with:
-          java-version: 21
-          distribution: corretto
-
-      - uses: actions/checkout@v5
-        with:
-          repository: apache/polaris
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-        with:
-          develocity-injection-enabled: true
-          develocity-plugin-version: '4.2.2'
-          develocity-ccud-plugin-version: '2.4.0'
-          develocity-url: 'https://ge.solutions-team.gradle.com'
-          develocity-enforce-url: true
-          develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
-
-      - run: ./gradlew --info --no-build-cache --no-daemon compileJava
-
-  slow-disk-with-rm-javaCompile:
-    runs-on:
-      - self-hosted
-    env:
-      GRADLE_USER_HOME: /home/ec2-user/gradle/HOME
-
-    steps:
-      - name: Cleanup home dir
-        run: rm -rf $GRADLE_USER_HOME
-
-      - name: Set up Java
-        uses: actions/setup-java@v5
-        with:
-          java-version: 21
-          distribution: corretto
-
-      - uses: actions/checkout@v5
-        with:
-          repository: apache/polaris
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-        with:
-          develocity-injection-enabled: true
-          develocity-plugin-version: '4.2.2'
-          develocity-ccud-plugin-version: '2.4.0'
-          develocity-url: 'https://ge.solutions-team.gradle.com'
-          develocity-enforce-url: true
-          develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
-
-      - run: rm -rf $GRADLE_USER_HOME/caches/9.4.0/javaCompile
+      - name: Remove javaCompile cache
+        if: ${{ matrix.remove_java_compile }}
+        run: rm -rf $GRADLE_USER_HOME/caches/9.4.0/javaCompile
 
       - run: ./gradlew --info --no-build-cache --no-daemon compileJava
 
