@@ -5,9 +5,6 @@ on:
       - '.github/workflows/polaris.yml'
   workflow_dispatch:
 
-env:
-  GRADLE_USER_HOME: /mnt/instance-store/gradle/HOME
-
 jobs:
   # inspect-runner:
   #   runs-on:
@@ -99,9 +96,12 @@ jobs:
   #         name: system-state
   #         path: ${{ runner.temp }}/inspect/system-state.txt
 
-  build:
+  fast-disk:
     runs-on:
       - self-hosted
+    env:
+      GRADLE_USER_HOME: /mnt/instance-store/gradle/HOME
+
     steps:
       - name: Cleanup home dir
         run: rm -rf $GRADLE_USER_HOME
@@ -128,9 +128,79 @@ jobs:
 
       - run: ./gradlew --info --no-build-cache --no-daemon compileJava
 
-  build-with-rm-javaCompile:
+  fast-disk-with-rm-javaCompile:
     runs-on:
       - self-hosted
+    env:
+      GRADLE_USER_HOME: /mnt/instance-store/gradle/HOME
+
+    steps:
+      - name: Cleanup home dir
+        run: rm -rf $GRADLE_USER_HOME
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          java-version: 21
+          distribution: corretto
+
+      - uses: actions/checkout@v5
+        with:
+          repository: apache/polaris
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          develocity-injection-enabled: true
+          develocity-plugin-version: '4.2.2'
+          develocity-ccud-plugin-version: '2.4.0'
+          develocity-url: 'https://ge.solutions-team.gradle.com'
+          develocity-enforce-url: true
+          develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
+
+      - run: rm -rf $GRADLE_USER_HOME/caches/9.4.0/javaCompile
+
+      - run: ./gradlew --info --no-build-cache --no-daemon compileJava
+
+
+  slow-disk:
+    runs-on:
+      - self-hosted
+    env:
+      GRADLE_USER_HOME: /home/ec2-user/gradle/HOME
+
+    steps:
+      - name: Cleanup home dir
+        run: rm -rf $GRADLE_USER_HOME
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          java-version: 21
+          distribution: corretto
+
+      - uses: actions/checkout@v5
+        with:
+          repository: apache/polaris
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          develocity-injection-enabled: true
+          develocity-plugin-version: '4.2.2'
+          develocity-ccud-plugin-version: '2.4.0'
+          develocity-url: 'https://ge.solutions-team.gradle.com'
+          develocity-enforce-url: true
+          develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
+
+      - run: ./gradlew --info --no-build-cache --no-daemon compileJava
+
+  slow-disk-with-rm-javaCompile:
+    runs-on:
+      - self-hosted
+    env:
+      GRADLE_USER_HOME: /home/ec2-user/gradle/HOME
+
     steps:
       - name: Cleanup home dir
         run: rm -rf $GRADLE_USER_HOME
