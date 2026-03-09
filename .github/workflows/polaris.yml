@@ -7,7 +7,7 @@ on:
 jobs:
   inspect-runner:
     runs-on:
-      - ubuntu-latest
+      - self-hosted
     steps:
       - name: Inspect runner storage and instance state
         shell: bash
@@ -97,7 +97,7 @@ jobs:
 
   build:
     runs-on:
-      - ubuntu-latest
+      - self-hosted
     steps:
       - name: Cleanup home dir
         run: rm -rf ~/.gradle
