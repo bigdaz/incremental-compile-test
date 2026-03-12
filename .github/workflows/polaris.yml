@@ -112,7 +112,7 @@ jobs:
           - incremental-disabled
           - incremental-enabled
         gradle-executable:
-          - "gradle-9.4.0"
+          - "gradle-9.3.1"
           - "patched-gradle"
     env:
       GRADLE_USER_HOME: ${{ matrix.storage == 'fast-disk' && '/mnt/instance-store/gradle/HOME' || '/home/ec2-user/gradle/HOME' }}
@@ -146,6 +146,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v5
         with:
+          gradle-version: "9.3.1"
           develocity-injection-enabled: true
           develocity-plugin-version: '4.2.2'
           develocity-ccud-plugin-version: '2.4.0'
@@ -155,10 +156,10 @@ jobs:
 
       - name: Remove javaCompile cache
         if: ${{ matrix.state == 'javaCompile-removed' }}
-        run: rm -rf $GRADLE_USER_HOME/caches/9.4.0/javaCompile
+        run: rm -rf $GRADLE_USER_HOME/caches/9.3.1/javaCompile
 
-      - name: Build with Gradle 9.4.0
-        if: ${{ matrix.gradle-executable == 'gradle-9.4.0' }}
+      - name: Build with Gradle 9.3.1
+        if: ${{ matrix.gradle-executable == 'gradle-9.3.1' }}
         run: ./gradlew --info --no-build-cache --no-daemon compileJava
 
       - name: Build with patched Gradle
