@@ -6,6 +6,96 @@ on:
   workflow_dispatch:
 
 jobs:
+  inspect-runner:
+    runs-on:
+      - self-hosted
+    steps:
+      - name: Inspect runner storage and instance state
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p "$RUNNER_TEMP/inspect"
+          LOG="$RUNNER_TEMP/inspect/system-state.txt"
+
+          {
+            echo "=== system-state $(date -Is) ==="
+
+            echo "== Basic system =="
+            uname -a || true
+            cat /etc/os-release || true
+            echo "hostname=$(hostname 2>/dev/null || true)"
+            echo "user=$(id 2>/dev/null || true)"
+            echo "pwd=$(pwd 2>/dev/null || true)"
+
+            echo
+            echo "== CPU and memory =="
+            nproc || true
+            lscpu || true
+            free -h || true
+
+            echo
+            echo "== Filesystems and mounts =="
+            df -hT || true
+            findmnt -a || true
+
+            echo
+            echo "== Block devices =="
+            lsblk -a -o NAME,KNAME,MAJ:MIN,FSTYPE,TYPE,SIZE,ROTA,RO,RM,MOUNTPOINTS,MODEL,SERIAL || true
+
+            echo
+            echo "== Block device queue info =="
+            for d in /sys/block/*; do
+              dev="$(basename "$d")"
+              echo "-- $dev --"
+              for f in rotational scheduler nr_requests read_ahead_kb logical_block_size physical_block_size max_sectors_kb minimum_io_size optimal_io_size; do
+                [ -r "$d/queue/$f" ] && echo "$f=$(cat "$d/queue/$f")"
+              done
+            done
+
+            echo
+            echo "== Important paths =="
+            for p in "$HOME" "$GITHUB_WORKSPACE" "${RUNNER_TEMP:-}" "$HOME/.gradle"; do
+              [ -n "$p" ] || continue
+              echo "-- $p --"
+              mkdir -p "$p" 2>/dev/null || true
+              df -hT "$p" || true
+            done
+
+            echo
+            echo "== Environment (selected) =="
+            env | sort | grep -E '^(AWS|CODEBUILD|GITHUB|RUNNER|JAVA|GRADLE|HOME|USER|SHELL|PATH)=' || true
+
+            echo
+            echo "== Java and Gradle =="
+            java -version || true
+            javac -version || true
+            ./gradlew --version || true
+
+            echo
+            echo "== EC2 instance metadata (IMDSv2) =="
+            TOKEN="$(curl -fsS -X PUT 'http://169.254.169.254/latest/api/token' -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600' 2>/dev/null || true)"
+            if [ -n "$TOKEN" ]; then
+              meta() {
+                curl -fsS -H "X-aws-ec2-metadata-token: $TOKEN" "http://169.254.169.254/latest/$1" 2>/dev/null || true
+              }
+              echo "instance-id=$(meta meta-data/instance-id)"
+              echo "instance-type=$(meta meta-data/instance-type)"
+              echo "ami-id=$(meta meta-data/ami-id)"
+              echo "availability-zone=$(meta meta-data/placement/availability-zone)"
+              echo "-- identity document --"
+              meta dynamic/instance-identity/document || true
+            else
+              echo "IMDS not reachable"
+            fi
+          } | tee "$LOG"
+
+      - name: Upload system inspection
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: system-state
+          path: ${{ runner.temp }}/inspect/system-state.txt
+
   build:
     runs-on:
       - self-hosted
@@ -70,7 +160,7 @@ jobs:
 
       - name: Build with Gradle 9.3.1
         if: ${{ matrix.gradle-executable == 'gradle-9.3.1' }}
-        run: ./gradlew --info --no-build-cache --no-daemon compileJava
+        run: gradle --info --no-build-cache --no-daemon compileJava
 
       - name: Build with patched Gradle
         if: ${{ matrix.gradle-executable == 'patched-gradle' }}
