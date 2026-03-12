@@ -126,10 +126,12 @@ jobs:
           distribution: corretto
 
       - uses: actions/checkout@v5
+        with:
+          repository: apache/polaris
 
       - uses: actions/checkout@v5
         with:
-          repository: apache/polaris
+          path: custom-gradle
 
       - name: Disable incremental Java compile
         if: ${{ matrix.disable_incremental_compile }}
@@ -153,7 +155,7 @@ jobs:
         if: ${{ matrix.remove_java_compile }}
         run: rm -rf $GRADLE_USER_HOME/caches/9.4.0/javaCompile
 
-      - run: gradle-fast/bin/gradle --info --no-build-cache --no-daemon compileJava
+      - run: custom-gradle/gradle-fast/bin/gradle --info --no-build-cache --no-daemon compileJava
 
   # build-disable-incremental-compile:
   #   runs-on:
