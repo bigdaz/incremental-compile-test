@@ -105,15 +105,15 @@ jobs:
         storage:
           - fast-disk
           - slow-disk
-        remove_java_compile:
-          - false
-          - true
-        disable_incremental_compile:
-          - false
-          - true
+        state:
+          - javaCompile-restored
+          - javaCompile-removed
+        incremental_compile:
+          - incremental-disabled
+          - incremental-enabled
         gradle-executable:
-          - "./gradlew"
-          - "custom-gradle/gradle-fast/bin/gradle"
+          - "gradle-9.4.0"
+          - "patched-gradle"
     env:
       GRADLE_USER_HOME: ${{ matrix.storage == 'fast-disk' && '/mnt/instance-store/gradle/HOME' || '/home/ec2-user/gradle/HOME' }}
 
@@ -136,7 +136,7 @@ jobs:
           path: custom-gradle
 
       - name: Disable incremental Java compile
-        if: ${{ matrix.disable_incremental_compile }}
+        if: ${{ matrix.incremental_compile == 'incremental-disabled' }}
         run: |
           cat <<'EOF' >> build.gradle.kts
 
@@ -154,10 +154,16 @@ jobs:
           develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
 
       - name: Remove javaCompile cache
-        if: ${{ matrix.remove_java_compile }}
+        if: ${{ matrix.state == 'javaCompile-removed' }}
         run: rm -rf $GRADLE_USER_HOME/caches/9.4.0/javaCompile
 
-      - run: ${{ matrix.gradle-executable }} --info --no-build-cache --no-daemon compileJava
+      - name: Build with Gradle 9.4.0
+        if: ${{ matrix.gradle-executable == 'gradle-9.4.0' }}
+        run: ./gradlew --info --no-build-cache --no-daemon compileJava
+
+      - name: Build with patched Gradle
+        if: ${{ matrix.gradle-executable == 'patched-gradle' }}
+        run: custom-gradle/gradle-fast/bin/gradle --info --no-build-cache --no-daemon compileJava
 
   # build-disable-incremental-compile:
   #   runs-on:
