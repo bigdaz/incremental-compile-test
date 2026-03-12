@@ -97,13 +97,12 @@ jobs:
   #         path: ${{ runner.temp }}/inspect/system-state.txt
 
   build:
-    name: ${{ matrix.storage_name }}${{ matrix.remove_java_compile && '-with-rm-javaCompile' || '' }}${{ matrix.disable_incremental_compile && '-disable-incremental-compile' || '' }}
     runs-on:
       - self-hosted
     strategy:
       fail-fast: false
       matrix:
-        storage_name:
+        storage:
           - fast-disk
           - slow-disk
         remove_java_compile:
@@ -112,8 +111,11 @@ jobs:
         disable_incremental_compile:
           - false
           - true
+        gradle-executable:
+          - "./gradlew"
+          - "custom-gradle/gradle-fast/bin/gradle"
     env:
-      GRADLE_USER_HOME: ${{ matrix.storage_name == 'fast-disk' && '/mnt/instance-store/gradle/HOME' || '/home/ec2-user/gradle/HOME' }}
+      GRADLE_USER_HOME: ${{ matrix.storage == 'fast-disk' && '/mnt/instance-store/gradle/HOME' || '/home/ec2-user/gradle/HOME' }}
 
     steps:
       - name: Cleanup home dir
@@ -155,7 +157,7 @@ jobs:
         if: ${{ matrix.remove_java_compile }}
         run: rm -rf $GRADLE_USER_HOME/caches/9.4.0/javaCompile
 
-      - run: custom-gradle/gradle-fast/bin/gradle --info --no-build-cache --no-daemon compileJava
+      - run: ${{ matrix.gradle-executable }} --info --no-build-cache --no-daemon compileJava
 
   # build-disable-incremental-compile:
   #   runs-on:
