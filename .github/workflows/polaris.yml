@@ -113,7 +113,8 @@ jobs:
           - incremental-enabled
         gradle-executable:
           - "gradle-9.3.1"
-          - "patched-gradle"
+          - "gradle-stefan"
+          - "gradle-asodja"
     env:
       GRADLE_USER_HOME: ${{ matrix.storage == 'fast-disk' && '/mnt/instance-store/gradle/HOME' || '/home/ec2-user/gradle/HOME' }}
 
@@ -163,5 +164,5 @@ jobs:
         run: gradle --info --no-build-cache --no-daemon compileJava
 
       - name: Build with patched Gradle
-        if: ${{ matrix.gradle-executable == 'patched-gradle' }}
-        run: custom-gradle/gradle-fast/bin/gradle --info --no-build-cache --no-daemon compileJava
+        if: ${{ matrix.gradle-executable != 'gradle-9.3.1' }}
+        run: custom-gradle/${{ matrix.gradle-executable }}/bin/gradle --info --no-build-cache --no-daemon compileJava
