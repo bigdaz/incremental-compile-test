@@ -157,7 +157,7 @@ jobs:
       - name: Remove javaCompile cache
         if: ${{ matrix.state == 'javaCompile-removed' }}
         run: |
-          rm -r $GRADLE_USER_HOME/caches/9.5.0-*/javaCompile
+          rm -rf $GRADLE_USER_HOME/caches/9.5.0-*/javaCompile
           ls -la $GRADLE_USER_HOME/caches
           ls -la $GRADLE_USER_HOME/caches/9.5.0-*
 
