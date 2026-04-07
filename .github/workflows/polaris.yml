@@ -160,7 +160,7 @@ jobs:
           find $GRADLE_USER_HOME -path "*/caches/9.5.0-*/javaCompile" -type d -exec rm -rf {} +
           rm -rf $GRADLE_USER_HOME/caches/9.5.0-*/javaCompile
           ls -la $GRADLE_USER_HOME/caches
-          ls -la $GRADLE_USER_HOME/caches/9.5.0-*
+          ls -la $GRADLE_USER_HOME/caches/*
 
       - name: Build with Gradle
         run: custom-gradle/${{ matrix.gradle-executable }}/bin/gradle --info --no-build-cache --no-daemon compileJava -Dscan.tag.${{ matrix.storage }} -Dscan.tag.${{ matrix.state }} -Dscan.tag.${{ matrix.incremental_compile }} -Dscan.tag.${{ matrix.gradle-executable }}
