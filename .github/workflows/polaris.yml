@@ -104,17 +104,17 @@ jobs:
       matrix:
         storage:
           - fast-disk
-          # - slow-disk
+          - slow-disk
         state:
-          # - javaCompile-restored
+          - javaCompile-restored
           - javaCompile-removed
         incremental_compile:
           - incremental-disabled
-          # - incremental-enabled
+          - incremental-enabled
         gradle-executable:
-          # - "gradle-release"
+          - "gradle-release"
           - "gradle-stefan"
-          # - "gradle-asodja"
+          - "gradle-asodja"
     env:
       GRADLE_USER_HOME: ${{ matrix.storage == 'fast-disk' && '/mnt/instance/gradle/HOME' || '/home/ec2-user/gradle/HOME' }}
 
