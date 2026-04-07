@@ -116,7 +116,7 @@ jobs:
           - "gradle-stefan"
           - "gradle-asodja"
     env:
-      GRADLE_USER_HOME: ${{ matrix.storage == 'fast-disk' && '/mnt/instance-store/gradle/HOME' || '/home/ec2-user/gradle/HOME' }}
+      GRADLE_USER_HOME: ${{ matrix.storage == 'fast-disk' && '/mnt/instance/gradle/HOME' || '/home/ec2-user/gradle/HOME' }}
 
     steps:
       - name: Cleanup home dir
@@ -161,8 +161,8 @@ jobs:
 
       - name: Build with Gradle 9.3.1
         if: ${{ matrix.gradle-executable == 'gradle-9.3.1' }}
-        run: gradle --info --no-build-cache --no-daemon compileJava
+        run: gradle --info --no-build-cache --no-daemon compileJava -Dscan.tag.${{ matrix.storage }} -Dscan.tag.${{ matrix.state }} -Dscan.tag.${{ matrix.incremental_compile }} -Dscan.tag.${{ matrix.gradle-executable }}
 
       - name: Build with patched Gradle
         if: ${{ matrix.gradle-executable != 'gradle-9.3.1' }}
-        run: custom-gradle/${{ matrix.gradle-executable }}/bin/gradle --info --no-build-cache --no-daemon compileJava
+        run: custom-gradle/${{ matrix.gradle-executable }}/bin/gradle --info --no-build-cache --no-daemon compileJava -Dscan.tag.${{ matrix.storage }} -Dscan.tag.${{ matrix.state }} -Dscan.tag.${{ matrix.incremental_compile }} -Dscan.tag.${{ matrix.gradle-executable }}
