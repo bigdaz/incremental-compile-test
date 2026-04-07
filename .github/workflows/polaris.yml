@@ -112,7 +112,7 @@ jobs:
           - incremental-disabled
           - incremental-enabled
         gradle-executable:
-          - "gradle-9.5.0"
+          - "gradle-release"
           - "gradle-stefan"
           - "gradle-asodja"
     env:
@@ -147,7 +147,6 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v5
         with:
-          gradle-version: "9.5.0"
           develocity-injection-enabled: true
           develocity-plugin-version: '4.2.2'
           develocity-ccud-plugin-version: '2.4.0'
@@ -157,12 +156,7 @@ jobs:
 
       - name: Remove javaCompile cache
         if: ${{ matrix.state == 'javaCompile-removed' }}
-        run: rm -rf $GRADLE_USER_HOME/caches/9.5.0/javaCompile
+        run: rm -rf $GRADLE_USER_HOME/caches/9.5.0-rc-1/javaCompile
 
-      - name: Build with Gradle 9.5.0
-        if: ${{ matrix.gradle-executable == 'gradle-9.5.0' }}
-        run: gradle --info --no-build-cache --no-daemon compileJava -Dscan.tag.${{ matrix.storage }} -Dscan.tag.${{ matrix.state }} -Dscan.tag.${{ matrix.incremental_compile }} -Dscan.tag.${{ matrix.gradle-executable }}
-
-      - name: Build with patched Gradle
-        if: ${{ matrix.gradle-executable != 'gradle-9.5.0' }}
+      - name: Build with Gradle
         run: custom-gradle/${{ matrix.gradle-executable }}/bin/gradle --info --no-build-cache --no-daemon compileJava -Dscan.tag.${{ matrix.storage }} -Dscan.tag.${{ matrix.state }} -Dscan.tag.${{ matrix.incremental_compile }} -Dscan.tag.${{ matrix.gradle-executable }}
