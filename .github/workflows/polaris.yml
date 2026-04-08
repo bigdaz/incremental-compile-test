@@ -106,10 +106,10 @@ jobs:
           - fast-disk
           - slow-disk
         state:
-          # - javaCompile-restored
-          - javaCompile-removed
+          - javaCompile-present
+          - javaCompile-absent
         incremental_compile:
-          # - incremental-disabled
+          - incremental-disabled
           - incremental-enabled
         gradle-executable:
           - "gradle-9.4.1"
@@ -157,7 +157,7 @@ jobs:
           develocity-access-key: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
 
       - name: Remove javaCompile cache
-        if: ${{ matrix.state == 'javaCompile-removed' }}
+        if: ${{ matrix.state == 'javaCompile-absent' }}
         run: |
           find $GRADLE_USER_HOME -path "*/caches/9*/javaCompile" -type d -exec rm -rf {} +
           ls -la $GRADLE_USER_HOME/caches
