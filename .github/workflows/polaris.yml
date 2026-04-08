@@ -106,10 +106,10 @@ jobs:
           - fast-disk
           - slow-disk
         state:
-          - javaCompile-restored
+          # - javaCompile-restored
           - javaCompile-removed
         incremental_compile:
-          - incremental-disabled
+          # - incremental-disabled
           - incremental-enabled
         gradle-executable:
           - "gradle-9.4.1"
